@@ -8,10 +8,7 @@
 ## Basic Usage
 
 ```julia
-import LAR
-
-using PyCall
-@pyimport larlib as p
+import Lar-core
 ```
 
 Generate and visualize a grid of 3-cubes. Poke around with the mouse pressed 
