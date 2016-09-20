@@ -1,5 +1,5 @@
 # LAR.jl
-### Geometric and topological modeling in Julia.
+### Geometric and topological modeling with chain complexes in Julia.
 
 
 **Installation**: `julia> Pkg.add("LAR")`
@@ -9,6 +9,7 @@
 
 ```julia
 import LAR
+
 using PyCall
 @pyimport larlib as p
 ```

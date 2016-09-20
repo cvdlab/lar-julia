@@ -1,4 +1,5 @@
 # module Lar-core
+# basic implementation of lar-core.jl module
 
 using JSON
 
@@ -6,19 +7,24 @@ using PyCall
 
 @pyimport larlib as p
 
-
+# root of LAR type hierarchy
 abstract LarModel
+
+# top LAR subtypes
 abstract LarGeometry <: LarModel
 abstract CellComplex <: LarModel
 abstract ChainComplex <: LarModel
 
+# concrete type for models
 type Model <: LarModel
 	Verts
 	Lar
 end
 
+# `Cells` type is a list (of lists of integers)
 typealias Cells Array{Any,1}
 
+# concrete type `LAR` is a quadruple of `Cells`
 type Lar <: CellComplex
     VV::Cells
     EV::Cells
@@ -26,16 +32,20 @@ type Lar <: CellComplex
     CV::Cells
 end
 
+# constructor of an empty quadruple of lists
 function Lar() 
 	Lar(Any[],Any[],Any[],Any[]) 
 end
 
+# constructor of a `Lar` instance (some fields possibly empty)
 function Lar(bases::Array{Any,1}) 
 	Lar( vv::Array{Any,2}, ev::Array{Any,2}, fv::Array{Any,2}, cv::Array{Any,2} ) 
 end
 
+# the `Basis` type as alias for Sparse binay Matrix by Columns
 typealias Basis SparseMatrixCSC
 
+# `ChainBases` is a quadruple (just 3D, for now) of `Basis` binary matrices 
 type ChainBases <: ChainComplex
     M0::Basis
     M1::Basis
@@ -43,6 +53,7 @@ type ChainBases <: ChainComplex
     M3::Basis
 end
 
+# constructor of an empty `ChainBases`
 function ChainBases() 
 	m0 = cellComplex()
 	m1 = cellComplex()
@@ -51,6 +62,7 @@ function ChainBases()
 	ChainBases(m0,m1,m2,m3) 
 end
 
+# constructor of a Basis instance from its cells
 function cellComplex(cells::Cells)
 	I,J,V = Int[],Int[],Int[]
 	for (i,row) in enumerate(cells)
@@ -61,6 +73,7 @@ function cellComplex(cells::Cells)
 	sparse(I,J,V)
 end
 
+# constructor of a Basis instance from its cells
 function cellComplex(cells::Array{Any,2})
 	I,J,V = Int[],Int[],Int[]
 	m,n = size(cells)
@@ -72,24 +85,30 @@ function cellComplex(cells::Array{Any,2})
 	sparse(I,J,V)
 end
 
+# constructor of an empty Basis instance
 function cellComplex()
 	sparse(Int[],Int[],Int[])
 end
 
+# alias type used for boundary and coboundary operators
 typealias Map SparseMatrixCSC
 
+# concrete type `CCMap` (for Chain-Cochain Map) for chain complexes (3D)
 type CCMap <: ChainComplex
     B1::Map
     B2::Map
     B3::Map
 end
 
+# constructor of empty `CCMap`
 function CCMap() 
 	CCMap(sparse(Int[],Int[],Int[])) 
 end
 
+# alias `Verts` for array of vertices in any embedding space (nD)
 typealias Verts Array{Float64,2}
 
+# Constructor of vertices from a Lar dictionary
 function Verts(lar::Dict)
 	verts = get(lar, "V", 0)
 	if verts != 0
@@ -102,7 +121,8 @@ function Verts(lar::Dict)
 	end
 end
 
-
+# conversion from a JSON dictionary to a concrete `Model` type,
+# i.e. to a pair of (Verts, Lar) types
 function json2larmodel(strng::AbstractString)
 	lardict = JSON.parse(strng)
 	vs = Verts(lardict)
@@ -118,7 +138,7 @@ function json2larmodel(strng::AbstractString)
 	Model(vs,lar)
 end
 
-
+# used to convert a 2-array to a list of lists
 function listOfList(cellArray::Array{Any,2})
 	out = []
 	for k=1:size(EV1)[1]
@@ -129,15 +149,18 @@ function listOfList(cellArray::Array{Any,2})
 	out
 end
 
-
+# transform a 0-based array to a 1-based array
 function rebase(faces::Array{Any,1})
 	Any[Int[v+1 for v in face] for face in faces]
 end
+
+# transform a 0-based array to a 1-based array
 function rebase(faces::Array{Any,2})
 	faces + 1
 end
 
-
+# transform a `larlib` pair (varts,bases) into a Julia triple
+# of instances of (Verts,Lar,ChainComplex) types
 function importmodel(larmodel)
 	if typeof(larmodel) == Tuple{Array{Any,2},Array{Any,1}}
 		verts,bases = larmodel
@@ -165,6 +188,7 @@ function importmodel(larmodel)
 	end
 end
 
+# visualize an HPC value from a Julia pair (Verts,Cells)
 function view(V::Array{Float64,2}, EV::Array{Int32,2})
 	a,b = PyObject(V), PyObject(EV)
 	verts = PyObject(a[:tolist]())
@@ -172,11 +196,13 @@ function view(V::Array{Float64,2}, EV::Array{Int32,2})
 	p.VIEW(p.MKPOL([verts,cells,1]))
 end
 
+# visualize an HPC value from a Julia pair (Verts,Cells)
 function view(V::Array{Any,2}, EV::Array{Any,1})
 	a,b = PyObject(V), PyObject(EV)
 	p.VIEW(p.MKPOL([a,b,1]))
 end
 
+# visualize an HPC value from a Julia pair (Verts,Cells)
 function view(V::Array{Float64,2}, EV::Array{Any,1})
 	a,b = PyObject(V), PyObject(EV)
 	verts = PyObject(a[:tolist]())
@@ -184,6 +210,7 @@ function view(V::Array{Float64,2}, EV::Array{Any,1})
 	p.VIEW(p.MKPOL([verts,cells,1]))
 end
 
+# visualize an HPC value from a Julia pair (Verts,Cells)
 function view(V::Array{Any,2}, EV::Array{Any,2})
 	a,b = PyObject(V), PyObject(EV)
 	verts = a
@@ -191,7 +218,7 @@ function view(V::Array{Any,2}, EV::Array{Any,2})
 	p.VIEW(p.MKPOL([verts,cells,1]))
 end
 
-
+# generate the triple of scaling factors needed by `larlib` explode
 function scalingargs(scaleargs)
 	if length(scaleargs)==1
 		sx = sy = sz = scaleargs[1]
@@ -203,6 +230,7 @@ function scalingargs(scaleargs)
 	sx, sy, sz
 end
 
+# visualise an exploded `larlib` pair from a Julia pair (Verts,Cells)
 function viewexploded(v::Array{Float64,2}, fv::Array{Any,1}, scaleargs=(1.2,))
 	sx, sy, sz = scalingargs(scaleargs)
 	a,b = PyObject(v), PyObject(fv)
@@ -210,12 +238,14 @@ function viewexploded(v::Array{Float64,2}, fv::Array{Any,1}, scaleargs=(1.2,))
 	p.VIEW(p.EXPLODE(sx,sy,sz)(p.MKPOLS((verts,b))))
 end
 
+# visualise an exploded `larlib` pair from a Julia pair (Verts,Cells)
 function viewexploded(v::Array{Any,2}, fv::Array{Any,1}, scaleargs=(1.2,))
 	sx, sy, sz = scalingargs(scaleargs)
 	a,b = PyObject(v), PyObject(fv)
 	p.VIEW(p.EXPLODE(sx,sy,sz)(p.MKPOLS((a,b))))
 end
 
+# visualise an exploded `larlib` pair from a Julia pair (Verts,Cells)
 function viewexploded(v::Array{Float64,2}, fv::Array{Any,2}, scaleargs=(1.2,))
 	sx, sy, sz = scalingargs(scaleargs)
 	a,b = PyObject(v), PyObject(fv')
@@ -223,6 +253,7 @@ function viewexploded(v::Array{Float64,2}, fv::Array{Any,2}, scaleargs=(1.2,))
 	p.VIEW(p.EXPLODE(sx,sy,sz)(p.MKPOLS((verts,Array[b]-1))))
 end
 
+# visualise an exploded `larlib` pair from a Julia pair (Verts,Cells)
 function viewexploded(v::Array{Any,2}, fv::Array{Any,2}, scaleargs=(1.2,))
 	sx, sy, sz = scalingargs(scaleargs)
 	cells = PyObject(map(Int16,fv))[:tolist]()
@@ -230,7 +261,7 @@ function viewexploded(v::Array{Any,2}, fv::Array{Any,2}, scaleargs=(1.2,))
 	p.VIEW(p.EXPLODE(sx,sy,sz)(p.MKPOLS((a,b))))
 end
 
-
+# embed vertices array in a higher dimensional space, adding `ndims` zero coords
 function embed(verts::Verts; ndims=1)
 	vs = copy(verts)
 	println(typeof(vs))
@@ -240,8 +271,7 @@ function embed(verts::Verts; ndims=1)
 	out = Verts(vs)
 end
 
-
-
+translate the columns of `V` matrix by sum with `t` vector
 function translate( t, V )
 	broadcast(+,t,V)
 end
@@ -249,7 +279,7 @@ function translate( V, t )
 	broadcast(+,t,V)
 end
 
-
+scale the columns of `V` matrix by product times `s` vector
 function scale( s, V )
 	broadcast(*,s,V)
 end
@@ -257,7 +287,7 @@ function scale( V, s )
 	broadcast(*,V,s)
 end
 
-
+rotate the columns of `V` matrix by properly using the `args` parameters
 function rotate(args,V)
 	n = length(args)
 	if n == 1 # rotation in 2D
@@ -296,6 +326,5 @@ function rotate(args,V)
 	end
 	mat*V
 end
-
 
 # end # module Lar-core
